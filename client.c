@@ -790,7 +790,7 @@ try_again:
 	return recv_fd ? 1 : 0;
 }
 
-#if 1
+#if 0
 int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 	struct timeval tv, *ptv = NULL;
 	int r, maxfd = 0;
