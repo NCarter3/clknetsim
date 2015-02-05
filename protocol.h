@@ -20,8 +20,6 @@
 
 #include "sysheaders.h"
 
-#define MAX_REQ_SIZE 1028
-
 #define REQ_REGISTER 1
 #define REQ_GETTIME 2
 #define REQ_SETTIME 3
@@ -35,7 +33,8 @@
 #define REQ_DEREGISTER 11
 
 struct Request_header {
-	long request;
+	int request;
+	int _pad;
 };
 
 struct Request_register {
@@ -90,7 +89,7 @@ struct Reply_select {
 	struct Reply_gettime time;
 };
 
-#define MAX_PACKET_SIZE 1000
+#define MAX_PACKET_SIZE 4000
 
 struct Request_send {
 	unsigned int subnet;
@@ -121,6 +120,35 @@ struct Reply_getrefsample {
 
 struct Reply_getrefoffsets {
 	double offsets[REPLY_GETREFOFFSETS_SIZE];
+};
+
+union Request_data {
+	struct Request_register _register;
+	struct Request_settime settime;
+	struct Request_adjtimex adjtimex;
+	struct Request_adjtime adjtime;
+	struct Request_select select;
+	struct Request_send send;
+};
+
+union Reply_data {
+	struct Reply_register _register;
+	struct Reply_gettime gettime;
+	struct Reply_adjtimex adjtimex;
+	struct Reply_adjtime adjtime;
+	struct Reply_select select;
+	struct Reply_recv recv;
+	struct Reply_getrefsample getrefsample;
+	struct Reply_getrefoffsets getrefoffsets;
+};
+
+struct Request_packet {
+	struct Request_header header;
+	union Request_data data;
+};
+
+struct Reply_packet {
+	union Reply_data data;
 };
 
 #endif

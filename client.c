@@ -32,6 +32,7 @@
 #include <sys/un.h>
 #include <unistd.h>
 #include <assert.h>
+#include <stddef.h>
 #include <stdlib.h>
 #include <errno.h>
 #include <sys/ioctl.h>
@@ -49,6 +50,8 @@
 #endif
 
 #include "protocol.h"
+
+#include "client_fuzz.c"
 
 /* first node in first subnet is 192.168.123.1 */
 #define BASE_ADDR 0xc0a87b00
@@ -85,11 +88,15 @@ static ssize_t (*_recvmsg)(int sockfd, struct msghdr *msg, int flags);
 static ssize_t (*_send)(int sockfd, const void *buf, size_t len, int flags);
 static int (*_usleep)(useconds_t usec);
 static void (*_srandom)(unsigned int seed);
+static int (*_shmget)(key_t key, size_t size, int shmflg);
+static void *(*_shmat)(int shmid, const void *shmaddr, int shmflg);
 
 static unsigned int node;
 static int initialized = 0;
 static int clknetsim_fd;
 static int precision_hack = 1;
+static unsigned int random_seed;
+static int fuzz_mode;
 
 enum {
 	IFACE_NONE = 0,
@@ -178,6 +185,19 @@ static void init(void) {
 	_send = (ssize_t (*)(int sockfd, const void *buf, size_t len, int flags))dlsym(RTLD_NEXT, "send");
 	_usleep = (int (*)(useconds_t usec))dlsym(RTLD_NEXT, "usleep");
 	_srandom = (void (*)(unsigned int seed))dlsym(RTLD_NEXT, "srandom");
+	_shmget = (int (*)(key_t key, size_t size, int shmflg))dlsym(RTLD_NEXT, "shmget");
+	_shmat = (void *(*)(int shmid, const void *shmaddr, int shmflg))dlsym(RTLD_NEXT, "shmat");
+
+	env = getenv("CLKNETSIM_RANDOM_SEED");
+	random_seed = env ? atoi(env) : 0;
+
+	if (fuzz_init()) {
+		fuzz_mode = 1;
+		node = 0;
+		subnets = 1;
+		initialized = 1;
+		return;
+	}
 
 	env = getenv("CLKNETSIM_NODE");
 	if (!env) {
@@ -225,22 +245,26 @@ static void fini(void) {
 }
 
 static void make_request(int request_id, const void *request_data, int reqlen, void *reply, int replylen) {
-	struct Request_header *header;
-	char buf[MAX_REQ_SIZE];
+	struct Request_packet request;
 	int sent, received = 0;
 
 	assert(initialized);
 
-	header = (struct Request_header *)buf;
-	header->request = request_id;
+	if (fuzz_mode) {
+		fuzz_process_reply(request_id, request_data, reply, replylen);
+		return;
+	}
 
-	assert(reqlen + sizeof (struct Request_header) <= MAX_REQ_SIZE);
+	request.header.request = request_id;
+	request.header._pad = 0;
+
+	assert(offsetof(struct Request_packet, data) + reqlen <= sizeof (request));
 
 	if (request_data)
-		memcpy(buf + sizeof (struct Request_header), request_data, reqlen);
-	reqlen += sizeof (struct Request_header);
+		memcpy(&request.data, request_data, reqlen);
+	reqlen += offsetof(struct Request_packet, data);
 
-	if ((sent = _send(clknetsim_fd, buf, reqlen, 0)) <= 0 ||
+	if ((sent = _send(clknetsim_fd, &request, reqlen, 0)) <= 0 ||
 			(reply && (received = recv(clknetsim_fd, reply, replylen, 0)) <= 0)) {
 		fprintf(stderr, "clknetsim: server connection closed.\n");
 		initialized = 0;
@@ -248,7 +272,21 @@ static void make_request(int request_id, const void *request_data, int reqlen, v
 	}
 
 	assert(sent == reqlen);
-	assert(!reply || received == replylen);
+
+	if (!reply)
+		return;
+
+	/* check reply length */
+	switch (request_id) {
+		case REQ_RECV:
+			/* reply with variable length */
+			assert(received >= offsetof(struct Reply_recv, data));
+			assert(offsetof(struct Reply_recv, data) +
+				((struct Reply_recv *)reply)->len <= received);
+			break;
+		default:
+			assert(received == replylen);
+	}
 }
 
 static void fetch_time(void) {
@@ -760,10 +798,16 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 	fd_set rfds;
 
 	/* ptp4l waiting for tx SO_TIMESTAMPING */
-	if (nfds == 1 && !fds[0].events && get_socket_from_fd(fds[0].fd) >= 0 &&
-		       sockets[get_socket_from_fd(fds[0].fd)].time_stamping) {
-		fds[0].revents = POLLERR;
-		return 1;
+	if (nfds == 1 && fds[0].events != POLLOUT && get_socket_from_fd(fds[0].fd) >= 0 &&
+			sockets[get_socket_from_fd(fds[0].fd)].time_stamping) {
+		if (!fds[0].events) {
+			fds[0].revents = POLLERR;
+			return 1;
+		} else if (fds[0].events == POLLPRI) {
+			/* SO_SELECT_ERR_QUEUE option enabled */
+			fds[0].revents = POLLPRI;
+			return 1;
+		}
 	}
 
 	/* pmc waiting to send packet */
@@ -788,7 +832,7 @@ int poll(struct pollfd *fds, nfds_t nfds, int timeout) {
 		ptv = &tv;
 	}
 
-	r = select(maxfd, &rfds, NULL, NULL, ptv);
+	r = select(maxfd + 1, &rfds, NULL, NULL, ptv);
 
 	for (i = 0; i < nfds; i++)
 		fds[i].revents = r > 0 && fds[i].fd >= 0 &&
@@ -1207,7 +1251,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
 	}
 
 	assert(msg->msg_iovlen == 1);
-	assert(msg->msg_iov[0].iov_len <= MAX_PACKET_SIZE);
+	assert(msg->msg_iov[0].iov_len <= sizeof (req.data));
 
 	get_target(s, ntohl(sa->sin_addr.s_addr), &req.subnet, &req.to);
 	req.src_port = sockets[s].port;
@@ -1217,7 +1261,7 @@ ssize_t sendmsg(int sockfd, const struct msghdr *msg, int flags) {
 	req.len = msg->msg_iov[0].iov_len;
 	memcpy(req.data, msg->msg_iov[0].iov_base, req.len);
 
-	make_request(REQ_SEND, &req, sizeof (req), NULL, 0);
+	make_request(REQ_SEND, &req, offsetof(struct Request_send, data) + req.len, NULL, 0);
 
 	return req.len;
 }
@@ -1246,7 +1290,7 @@ ssize_t send(int sockfd, const void *buf, size_t len, int flags) {
 ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags) {
 	struct Reply_recv rep;
 	struct sockaddr_in *sa;
-	int s = get_socket_from_fd(sockfd);
+	int msglen, s = get_socket_from_fd(sockfd);
 
 	if (sockfd == clknetsim_fd)
 		return _recvmsg(sockfd, msg, flags);
@@ -1285,8 +1329,8 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags) {
 	}
 
 	assert(msg->msg_iovlen == 1);
-	assert(msg->msg_iov[0].iov_len >= rep.len);
-	memcpy(msg->msg_iov[0].iov_base, rep.data, rep.len);
+	msglen = msg->msg_iov[0].iov_len < rep.len ? msg->msg_iov[0].iov_len : rep.len;
+	memcpy(msg->msg_iov[0].iov_base, rep.data, msglen);
 
 #ifdef SO_TIMESTAMPING
 	if (sockets[s].time_stamping) {
@@ -1312,7 +1356,7 @@ ssize_t recvmsg(int sockfd, struct msghdr *msg, int flags) {
 #endif
 		msg->msg_controllen = 0;
 
-	return rep.len;
+	return msglen;
 }
 
 ssize_t recvfrom(int sockfd, void *buf, size_t len, int flags, struct sockaddr *src_addr, socklen_t *addrlen) {
@@ -1438,17 +1482,18 @@ int setitimer(__itimer_which_t which, const struct itimerval *new_value, struct 
 
 int getitimer(__itimer_which_t which, struct itimerval *curr_value) {
 	struct itimerspec timerspec;
-	int r;
 
 	assert(which == ITIMER_REAL);
 
-	r = timer_gettime(itimer_real_id, &timerspec);
+	if (timer_gettime(itimer_real_id, &timerspec))
+		return -1;
+
 	curr_value->it_interval.tv_sec = timerspec.it_interval.tv_sec;
 	curr_value->it_interval.tv_usec = timerspec.it_interval.tv_nsec / 1000;
 	curr_value->it_value.tv_sec = timerspec.it_value.tv_sec;
 	curr_value->it_value.tv_usec = timerspec.it_value.tv_nsec / 1000;
 
-	return r; 
+	return 0;
 }
 #endif
 
@@ -1482,12 +1527,19 @@ int timerfd_gettime(int fd, struct itimerspec *curr_value) {
 }
 
 int shmget(key_t key, size_t size, int shmflg) {
+	if (fuzz_mode)
+		return _shmget(key, size, shmflg);
+
 	if (key == SHMKEY)
 		return SHMKEY;
+
 	return -1;
 }
 
 void *shmat(int shmid, const void *shmaddr, int shmflg) {
+	if (fuzz_mode)
+		return _shmat(shmid, shmaddr, shmflg);
+
 	assert(shmid == SHMKEY);
 
 	refclock_shm_enabled = 1;
@@ -1572,8 +1624,11 @@ long syscall(long number, ...) {
 void srandom(unsigned int seed) {
 	FILE *f;
 
-	/* the seed is likely based on the simulated time, make it truly random */
-	if ((f = fopen("/dev/urandom", "r"))) {
+	/* override the seed to the fixed seed if set or make it truly
+	   random in case it's based on the simulated time */
+	if (random_seed) {
+		seed = random_seed;
+	} else if ((f = fopen("/dev/urandom", "r"))) {
 		fread(&seed, sizeof (seed), 1, f);
 		fclose(f);
 	}

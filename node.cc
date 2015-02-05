@@ -18,6 +18,7 @@
 #include "node.h"
 #include "network.h"
 #include "protocol.h"
+#include "sysheaders.h"
 
 Node::Node(int index, Network *network) {
 	this->network = network;
@@ -58,51 +59,51 @@ void Node::set_start_time(double time) {
 }
 
 bool Node::process_fd() {
-	char buf[MAX_REQ_SIZE];
-	Request_header *h;
-	void *data;
+	Request_packet request;
 	int received, reqlen;
 
-	received = recv(fd, buf, sizeof (buf), 0);
-	if (received < (int)sizeof (Request_header))
+	received = recv(fd, &request, sizeof (request), 0);
+	if (received < (int)sizeof (request.header))
 		return false;
 
-	h = (Request_header *)buf;
-	data = buf + sizeof (Request_header);
-	reqlen = received - sizeof (Request_header);
+	reqlen = received - (int)offsetof(Request_packet, data);
 
 	assert(pending_request == 0);
-	pending_request = h->request;
+	pending_request = request.header.request;
 
 #ifdef DEBUG
 	printf("received request %ld in node %d at %f\n",
-			h->request, index, clock.get_real_time());
+			pending_request, index, clock.get_real_time());
 #endif
 
-	switch (h->request) {
+	switch (pending_request) {
 		case REQ_GETTIME:
 			assert(reqlen == 0);
 			process_gettime();
 			break;
 		case REQ_SETTIME:
 			assert(reqlen == sizeof (Request_settime));
-			process_settime(data);
+			process_settime(&request.data.settime);
 			break;
 		case REQ_ADJTIMEX:
 			assert(reqlen == sizeof (Request_adjtimex));
-			process_adjtimex(data);
+			process_adjtimex(&request.data.adjtimex);
 			break;
 		case REQ_ADJTIME:
 			assert(reqlen == sizeof (Request_adjtime));
-			process_adjtime(data);
+			process_adjtime(&request.data.adjtime);
 			break;
 		case REQ_SELECT:
 			assert(reqlen == sizeof (Request_select));
-			process_select(data);
+			process_select(&request.data.select);
 			break;
 		case REQ_SEND:
-			assert(reqlen == sizeof (Request_send));
-			process_send(data);
+			/* request with variable length */
+			assert(reqlen >= (int)offsetof(Request_send, data) &&
+					reqlen <= (int)sizeof (Request_send));
+			assert(request.data.send.len <= sizeof (request.data.send.data));
+			assert((int)(request.data.send.len + offsetof(Request_send, data)) <= reqlen);
+			process_send(&request.data.send);
 			break;
 		case REQ_RECV:
 			assert(reqlen == 0);
@@ -148,15 +149,12 @@ void Node::process_gettime() {
 	reply(&r, sizeof (r), REQ_GETTIME);
 }
 
-void Node::process_settime(void *data) {
-	Request_settime *req = (Request_settime *)data;
-
+void Node::process_settime(Request_settime *req) {
 	clock.set_time(req->time);
 	reply(NULL, 0, REQ_SETTIME);
 }
 
-void Node::process_adjtimex(void *data) {
-	Request_adjtimex *req = (Request_adjtimex *)data;
+void Node::process_adjtimex(Request_adjtimex *req) {
 	Reply_adjtimex rep;
 	struct timex *buf = &req->timex;
 
@@ -166,8 +164,7 @@ void Node::process_adjtimex(void *data) {
 	reply(&rep, sizeof (rep), REQ_ADJTIMEX);
 }
 
-void Node::process_adjtime(void *data) {
-	Request_adjtime *req = (Request_adjtime *)data;
+void Node::process_adjtime(Request_adjtime *req) {
 	Reply_adjtime rep;
 
 	clock.adjtime(&req->tv, &rep.tv);
@@ -208,9 +205,7 @@ void Node::try_select() {
 	}
 }
 
-void Node::process_select(void *data) {
-	Request_select *req = (Request_select *)data;
-
+void Node::process_select(Request_select *req) {
 	if (req->timeout < 0.0)
 		req->timeout = 0.0;
 	select_timeout = clock.get_monotonic_time() + req->timeout;
@@ -221,11 +216,8 @@ void Node::process_select(void *data) {
 	try_select();
 }
 
-void Node::process_send(void *data) {
-	Request_send *req = (Request_send *)data;
+void Node::process_send(Request_send *req) {
 	struct Packet *packet;
-
-	assert(req->len <= sizeof (packet->data));
 
 	if (!terminate) {
 		packet = new struct Packet;
@@ -253,8 +245,7 @@ void Node::process_recv() {
 		rep.src_port = 0;
 		rep.dst_port = 0;
 		rep.len = 0;
-		memset(rep.data, 0, sizeof (rep.data));
-		reply(&rep, sizeof (rep), REQ_RECV);
+		reply(&rep, offsetof (Reply_recv, data), REQ_RECV);
 
 		return;
 	}
@@ -269,11 +260,10 @@ void Node::process_recv() {
 
 	assert(packet->len <= sizeof (rep.data));
 	memcpy(rep.data, packet->data, packet->len);
-	memset(rep.data + packet->len, 0, sizeof (rep.data) - packet->len);
 	
 	delete packet;
 
-	reply(&rep, sizeof (rep), REQ_RECV);
+	reply(&rep, offsetof (Reply_recv, data) + rep.len, REQ_RECV);
 
 	incoming_packets.pop_back();
 #ifdef DEBUG
