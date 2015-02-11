@@ -388,7 +388,7 @@ void Network::send(struct Packet *packet) {
 	stats[packet->from].update_packet_stats(false, time, delay);
 
 	if (packet_log)
-		fprintf(packet_log, "%e\t%d\t%d\t%e\t%d\t%d\t%d\n", time,
+		fprintf(packet_log, "%lf\t%d\t%d\t%e\t%d\t%d\t%d\n", time,
 				packet->from + 1, packet->to + 1, delay,
 				packet->src_port, packet->dst_port,
 				packet->subnet + 1);
