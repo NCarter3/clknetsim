@@ -64,6 +64,9 @@ class Network {
 	Packet_queue packet_queue;
 
 	FILE *offset_log;
+	FILE *ntp_maxerror_log;
+	FILE *ntp_esterror_log;
+	FILE *ntp_offset_log;
 	FILE *freq_log;
 	FILE *rawfreq_log;
 	FILE *packet_log;
@@ -79,6 +82,9 @@ class Network {
 	void set_link_delay_generator(unsigned int from, unsigned int to, Generator *generator);
 	bool run(double time_limit);
 	void open_offset_log(const char *log);
+	void open_ntp_maxerror_log(const char *log);
+	void open_ntp_esterror_log(const char *log);
+	void open_ntp_offset_log(const char *log);
 	void open_freq_log(const char *log);
 	void open_rawfreq_log(const char *log);
 	void open_packet_log(const char *log);

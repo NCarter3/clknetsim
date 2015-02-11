@@ -74,6 +74,18 @@ double Clock::get_monotonic_time() const {
 	return mono_time;
 }
 
+long Clock::get_ntp_offset() const {
+	return ntp_timex.offset;
+}
+
+long Clock::get_ntp_maxerror() const {
+	return ntp_timex.maxerror;
+}
+
+long Clock::get_ntp_esterror() const {
+	return ntp_timex.esterror;
+}
+
 double Clock::get_total_freq() const {
 	double timex_freq, adjtime_freq;
 
