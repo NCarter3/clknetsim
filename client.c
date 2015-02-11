@@ -16,6 +16,12 @@
  */
 
 #define _GNU_SOURCE
+
+// // Turn on timestamping
+// #ifndef SO_TIMESTAMPING
+// #define SO_TIMESTAMPING
+// #endif
+
 #include <sys/utsname.h>
 #include <sys/time.h>
 #include <sys/timex.h>
