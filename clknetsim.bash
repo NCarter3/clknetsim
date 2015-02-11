@@ -43,8 +43,15 @@ start_client() {
 	ntpd)
 	    cat > tmp/conf.$node <<-EOF
 		pidfile tmp/pidfile.$node
+		
+		statsdir /home/clinic/git/clknetsim/tmp/ntpstats-$node
+		statistics loopstats rawstats sysstats
+		filegen loopstats file loopstats type day enable
+		filegen rawstats file rawstats type day enable
+		filegen sysstats file sysstats type day enable
+
 		restrict default
-		logconfig=syncstatus +allevents
+		logconfig=syncstatus +allall
 		$config
 		EOF
 	    args=(-n -c tmp/conf.$node $opts)
