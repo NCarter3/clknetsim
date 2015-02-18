@@ -67,6 +67,9 @@ class Network {
 	FILE *ntp_maxerror_log;
 	FILE *ntp_esterror_log;
 	FILE *ntp_offset_log;
+	FILE *ntp_timex_offset_log;
+	FILE *ntp_status_log;
+	FILE *monotonic_log;
 	FILE *freq_log;
 	FILE *rawfreq_log;
 	FILE *packet_log;
@@ -84,7 +87,10 @@ class Network {
 	void open_offset_log(const char *log);
 	void open_ntp_maxerror_log(const char *log);
 	void open_ntp_esterror_log(const char *log);
+	void open_ntp_timex_offset_log(const char *log);
 	void open_ntp_offset_log(const char *log);
+	void open_ntp_status_log(const char *log);
+	void open_monotonic_log(const char *log);
 	void open_freq_log(const char *log);
 	void open_rawfreq_log(const char *log);
 	void open_packet_log(const char *log);

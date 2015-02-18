@@ -74,7 +74,11 @@ double Clock::get_monotonic_time() const {
 	return mono_time;
 }
 
-long Clock::get_ntp_offset() const {
+double Clock::get_ntp_offset() const {
+	return ntp_offset;
+}
+
+long Clock::get_ntp_timex_offset() const {
 	return ntp_timex.offset;
 }
 
@@ -84,6 +88,10 @@ long Clock::get_ntp_maxerror() const {
 
 long Clock::get_ntp_esterror() const {
 	return ntp_timex.esterror;
+}
+
+int Clock::get_ntp_status() const{
+	return ntp_timex.status;
 }
 
 double Clock::get_total_freq() const {
@@ -221,9 +229,10 @@ void Clock::update_ntp_offset(long offset) {
 	if (ntp_timex.status & STA_FREQHOLD)
 		ntp_update_interval = 0;
 
-	if (ntp_timex.status & STA_NANO)
+	// Adjust time offset to correct unit depending on flag
+	if (ntp_timex.status & STA_NANO) 	// nano seconds
 		new_offset = offset / 1e9;
-	else
+	else								// micro seconds
 		new_offset = offset / 1e6;
 
 	tc = 1 << ntp_timex.constant;

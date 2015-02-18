@@ -50,9 +50,11 @@ public:
 	~Clock();
 	double get_real_time() const;
 	double get_monotonic_time() const;
-	long get_ntp_offset() const;
+	double get_ntp_offset() const;
+	long get_ntp_timex_offset() const;
 	long get_ntp_maxerror() const;
 	long get_ntp_esterror() const;
+	int get_ntp_status() const;
 	double get_total_freq() const;
 	double get_raw_freq() const;
 	double get_true_interval(double local_interval) const;

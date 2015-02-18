@@ -64,6 +64,9 @@ Network::Network(const char *socket, unsigned int n, unsigned int subnets, unsig
 	ntp_maxerror_log = NULL;
 	ntp_esterror_log = NULL;
 	ntp_offset_log = NULL;
+	ntp_timex_offset_log = NULL;
+	ntp_status_log = NULL;
+	monotonic_log = NULL;
 	freq_log = NULL;
 	rawfreq_log = NULL;
 	packet_log = NULL;
@@ -98,6 +101,12 @@ Network::~Network() {
 		fclose(ntp_esterror_log);
 	if (ntp_offset_log)
 		fclose(ntp_offset_log);
+	if (ntp_timex_offset_log)
+		fclose(ntp_timex_offset_log);
+	if (ntp_status_log)
+		fclose(ntp_status_log);
+	if (monotonic_log)
+		fclose(monotonic_log);
 	if (freq_log)
 		fclose(freq_log);
 	if (rawfreq_log)
@@ -303,9 +312,21 @@ void Network::update_clock_stats() {
 		for (i = 0; i < n; i++)
 			fprintf(ntp_esterror_log, "%li%c", nodes[i]->get_clock()->get_ntp_esterror(), i + 1 < n ? '\t' : '\n');
 	}
+	if (ntp_timex_offset_log) {
+		for (i = 0; i < n; i++)
+			fprintf(ntp_timex_offset_log, "%li%c", nodes[i]->get_clock()->get_ntp_timex_offset(), i + 1 < n ? '\t' : '\n');
+	}
 	if (ntp_offset_log) {
 		for (i = 0; i < n; i++)
-			fprintf(ntp_offset_log, "%li%c", nodes[i]->get_clock()->get_ntp_offset(), i + 1 < n ? '\t' : '\n');
+			fprintf(ntp_offset_log, "%.9f%c", nodes[i]->get_clock()->get_ntp_offset(), i + 1 < n ? '\t' : '\n');
+	}
+	if (ntp_status_log) {
+		for (i = 0; i < n; i++)
+			fprintf(ntp_status_log, "%i%c", nodes[i]->get_clock()->get_ntp_status(), i + 1 < n ? '\t' : '\n');
+	}
+	if (monotonic_log) {
+		for (i = 0; i < n; i++)
+			fprintf(monotonic_log, "%.9f%c", nodes[i]->get_clock()->get_monotonic_time(), i + 1 < n ? '\t' : '\n');
 	}
 	if (freq_log) {
 		for (i = 0; i < n; i++)
@@ -336,6 +357,18 @@ void Network::open_ntp_esterror_log(const char *log) {
 
 void Network::open_ntp_offset_log(const char *log) {
 	ntp_offset_log = fopen(log, "w");
+}
+
+void Network::open_ntp_timex_offset_log(const char *log) {
+	ntp_timex_offset_log = fopen(log, "w");
+}
+
+void Network::open_ntp_status_log(const char *log) {
+	ntp_status_log = fopen(log, "w");
+}
+
+void Network::open_monotonic_log(const char *log) {
+	monotonic_log = fopen(log, "w");
 }
 
 void Network::open_freq_log(const char *log) {
