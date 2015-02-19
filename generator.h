@@ -22,6 +22,9 @@
 #include <vector>
 #include <map>
 #include <string>
+#include <random>
+
+#include "include/pcg_random.hpp"
 
 using namespace std;
 
@@ -59,6 +62,10 @@ class Generator_random_uniform: public Generator {
 	public:
 	Generator_random_uniform(const vector<Generator *> *input);
 	virtual double generate(const Generator_variables *variables);
+
+	private:
+	pcg32 generator;
+	std::uniform_real_distribution<double> distribution;
 };
 
 class Generator_random_normal: public Generator {

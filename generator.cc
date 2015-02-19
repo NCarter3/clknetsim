@@ -65,15 +65,29 @@ double Generator_variable::generate(const Generator_variables *variables) {
 }
 
 Generator_random_uniform::Generator_random_uniform(const vector<Generator *> *input):
-	Generator(NULL) {
+	Generator(NULL)/*, generator(9876), distribution(0.0, 1.0)*/ {
+
+    // Seed with a real random value, if available
+    pcg_extras::seed_seq_from<std::random_device> seed_source;
+  
+    // Make a random number engine 
+    pcg32 rng(seed_source);
+
+    // Generate uniform distrobution
+    std::uniform_real_distribution<double> uniform_distribution(0.0, 1.0);
+
+    generator = rng;
+    distribution = uniform_distribution;
+
 	syntax_assert(!input || input->size() == 0);
 }
 
 double Generator_random_uniform::generate(const Generator_variables *variables) {
 	double x;
 
-	x = ((random() & 0x7fffffff) + 1) / 2147483649.0;
-	x = ((random() & 0x7fffffff) + x) / 2147483648.0;
+	x = this->distribution(generator);
+	// x = ((random() & 0x7fffffff) + 1) / 2147483649.0;
+	// x = ((random() & 0x7fffffff) + x) / 2147483648.0;
 
 	return x;
 }
