@@ -1,7 +1,7 @@
 CC=gcc
 CXX=g++
 CFLAGS=-O2 -Wall -g -fPIC
-CXXFLAGS=$(CFLAGS)
+CXXFLAGS=$(CFLAGS) -std=c++11
 
 all: clknetsim.so clknetsim
 
@@ -21,9 +21,9 @@ clean:
 	@mkdir .deps
 
 .deps/%.d: %.c .deps
-	@$(CC) -MM $(CPPFLAGS) -MT '$(<:%.c=%.o) $@' $< -o $@
+	@$(CC) -MM $(CFLAGS) -MT '$(<:%.c=%.o) $@' $< -o $@
 
 .deps/%.D: %.cc .deps
-	@$(CXX) -MM $(CPPFLAGS) -MT '$(<:%.cc=%.o) $@' $< -o $@
+	@$(CXX) -MM $(CXXFLAGS) -MT '$(<:%.cc=%.o) $@' $< -o $@
 
 -include $(clientobjs:%.o=.deps/%.d) $(serverobjs:%.o=.deps/%.D)
