@@ -40,18 +40,18 @@ start_client() {
 		EOF
 	    args=(-d -f tmp/conf.$node $opts)
 	    ;;
-	ntpd)
+	ntpd) # the filegens here don't seem to actually do anything
 	    cat > tmp/conf.$node <<-EOF
 		pidfile tmp/pidfile.$node
 		
-		statsdir /home/clinic/git/clknetsim/tmp/ntpstats-$node
-		statistics loopstats rawstats sysstats
-		filegen loopstats file loopstats type day enable
-		filegen rawstats file rawstats type day enable
-		filegen sysstats file sysstats type day enable
+		# statsdir /home/clinic/git/clknetsim/tmp/ntpstats-$node
+		# statistics loopstats rawstats sysstats
+		# filegen loopstats file loopstats type day enable
+		# filegen rawstats file rawstats type day enable
+		# filegen sysstats file sysstats type day enable
 
 		restrict default
-		logconfig=syncstatus +allall
+		# logconfig=syncstatus +allall
 		$config
 		EOF
 	    args=(-n -c tmp/conf.$node $opts)
@@ -62,6 +62,20 @@ start_client() {
 		$config
 		EOF
 	    args=(-f tmp/conf.$node $opts)
+	    ;;
+	ptpd2) # who knows if this will work
+	    cat > tmp/conf.$node <<-EOF
+	    ptpengine:interface=eth0
+	    ptpengine:domain=0
+	    ptpengine:ip_mode=multicast
+	    ptpengine:use_libpcap=n
+	    global:log_status=y
+
+		$config
+
+
+		EOF
+	    args=(-c tmp/conf.$node $opts)
 	    ;;
 	chronyc)
 	    args=($opts -m)
