@@ -65,17 +65,10 @@ start_client() {
 	    ;;
 	ptpd2) # who knows if this will work
 	    cat > tmp/conf.$node <<-EOF
-	    ptpengine:interface=eth0
-	    ptpengine:domain=0
-	    ptpengine:ip_mode=multicast
-	    ptpengine:use_libpcap=n
-	    global:log_status=y
-
 		$config
-
-
+		
 		EOF
-	    args=(-c tmp/conf.$node $opts)
+	    args=(-DDD -c tmp/conf.$node $opts)
 	    ;;
 	chronyc)
 	    args=($opts -m)
