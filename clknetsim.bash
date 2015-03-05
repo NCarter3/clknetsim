@@ -63,7 +63,7 @@ start_client() {
 		EOF
 	    args=(-f tmp/conf.$node $opts)
 	    ;;
-	ptpd2) # who knows if this will work
+	ptpd2) # who knows if this will work, seems not to, asserts failing
 	    cat > tmp/conf.$node <<-EOF
 		$config
 		
