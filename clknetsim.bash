@@ -38,7 +38,7 @@ start_client() {
 		bindcmdaddress 0.0.0.0
 		$config
 		EOF
-	    args=(-d -f tmp/conf.$node $opts)
+	    args=(-d -4 -f tmp/conf.$node $opts)
 	    ;;
 	ntpd) # the filegens here don't seem to actually do anything
 	    cat > tmp/conf.$node <<-EOF
