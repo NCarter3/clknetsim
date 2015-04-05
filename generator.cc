@@ -113,6 +113,31 @@ double Generator_random_normal::generate(const Generator_variables *variables) {
 	return x;
 }
 
+Generator_random_gamma::Generator_random_gamma(const vector<Generator *> *input):
+	Generator(NULL) {
+	double alpha, theta;
+
+	alpha = (*input)[0]->generate(NULL);
+	theta = (*input)[1]->generate(NULL);
+	// Seed with a real random value, if available
+    pcg_extras::seed_seq_from<std::random_device> seed_source;
+  
+    // Make a random number engine 
+    pcg32 rng(seed_source);
+
+    // Generate uniform distribution
+    std::gamma_distribution<double> gamma_distribution(alpha, theta);
+
+    generator = rng;
+    distribution = gamma_distribution;
+}
+
+double Generator_random_gamma::generate(const Generator_variables *variables) {
+	double x;
+	x = this->distribution(generator);
+	return x;
+}
+
 Generator_random_exponential::Generator_random_exponential(const vector<Generator *> *input):
 	Generator(NULL), uniform(NULL) {
 	syntax_assert(!input || input->size() == 0);
@@ -434,6 +459,8 @@ Generator *Generator_generator::generate(char *code) const {
 		ret = new Generator_random_exponential(&generators);
 	else if (strcmp(name, "poisson") == 0)
 		ret = new Generator_random_poisson(&generators);
+	else if (strcmp(name, "gamma") == 0)
+		ret = new Generator_random_gamma(&generators);
 	else if (strcmp(name, "file") == 0)
 		ret = new Generator_file(string);
 	else if (strcmp(name, "pulse") == 0)

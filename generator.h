@@ -93,6 +93,16 @@ class Generator_random_poisson: public Generator {
 	virtual double generate(const Generator_variables *variables);
 };
 
+class Generator_random_gamma: public Generator {
+	pcg32 generator;
+	std::gamma_distribution<double> distribution;
+
+	public:
+	Generator_random_gamma(const vector<Generator *> *input);
+	Generator_random_gamma(double alpha, double beta);
+	virtual double generate(const Generator_variables *variables);
+};
+
 class Generator_file: public Generator {
 	FILE *input;
 
