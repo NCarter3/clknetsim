@@ -13,6 +13,8 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by: Michael Saffron & Nick Carter; HMC RedHat Clinic Team '14 - '15
  */
 
 #include "clock.h"
