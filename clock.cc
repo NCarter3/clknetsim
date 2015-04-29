@@ -78,20 +78,8 @@ double Clock::get_ntp_offset() const {
 	return ntp_offset;
 }
 
-long Clock::get_ntp_timex_offset() const {
-	return ntp_timex.offset;
-}
-
 long Clock::get_ntp_maxerror() const {
 	return ntp_timex.maxerror;
-}
-
-long Clock::get_ntp_esterror() const {
-	return ntp_timex.esterror;
-}
-
-int Clock::get_ntp_status() const{
-	return ntp_timex.status;
 }
 
 double Clock::get_total_freq() const {

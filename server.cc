@@ -105,15 +105,15 @@ void run_generator(char *expr, int num) {
 int main(int argc, char **argv) {
 	int nodes, subnets = 1, help = 0, verbosity = 2, generate_only = 0, rate = 1;
 	double limit = 10000.0, reset = 0.0;
-	const char *offset_log = NULL, *ntp_maxerror_log = NULL, *ntp_esterror_log = NULL,
-	      *ntp_offset_log = NULL, *ntp_status_log = NULL, *monotonic_log = NULL, *freq_log = NULL, *rawfreq_log = NULL,
-	      *packet_log = NULL, *ntp_timex_offset_log = NULL, *config, *socket = "clknetsim.sock";
+	const char *offset_log = NULL, *ntp_maxerror_log = NULL,
+	      *ntp_offset_log = NULL, *freq_log = NULL, *rawfreq_log = NULL,
+	      *packet_log = NULL, *config, *socket = "clknetsim.sock";
 	struct timeval tv;
 
 	int r, opt;
 	Network *network;
 
-	while ((opt = getopt(argc, argv, "l:r:R:n:o:a:b:c:d:e:f:i:Gg:p:s:v:h")) != -1) {
+	while ((opt = getopt(argc, argv, "l:r:R:n:o:a:c:f:i:Gg:p:s:v:h")) != -1) {
 		switch (opt) {
 			case 'l':
 				limit = atof(optarg);
@@ -133,23 +133,11 @@ int main(int argc, char **argv) {
 			case 'a':
 				ntp_maxerror_log = optarg;
 				break;
-			case 'b':
-				ntp_esterror_log = optarg;
-				break;
 			case 'c':
 				ntp_offset_log = optarg;
 				break;
-			case 'd':
-				ntp_status_log = optarg;
-				break;		
-			case 'e':
-				monotonic_log = optarg;
-				break;									
 			case 'f':
 				freq_log = optarg;
-				break;
-			case 'i':
-				ntp_timex_offset_log = optarg;
 				break;
 			case 'g':
 				rawfreq_log = optarg;
@@ -180,7 +168,8 @@ int main(int argc, char **argv) {
 		printf("       -R rate       set freq/log/stats update rate (default 1 per second)\n");
 		printf("       -n subnets    set number of subnetworks (default 1)\n");
 		printf("       -o file       log time offsets to file\n");
-		printf("       -a,b,c file   log other things\n"); // TODO: comment
+		printf("       -a file   	 log Max Error term from system timex struct\n");
+		printf("       -c file   	 log offset term from node clock\n");
 		printf("       -f file       log frequency offsets to file\n");
 		printf("       -g file       log raw (w/o slew) frequency offsets to file\n");
 		printf("       -p file       log packet delays to file\n");
@@ -208,16 +197,8 @@ int main(int argc, char **argv) {
 		network->open_offset_log(offset_log);
 	if (ntp_maxerror_log)
 		network->open_ntp_maxerror_log(ntp_maxerror_log);
-	if (ntp_esterror_log)
-		network->open_ntp_esterror_log(ntp_esterror_log);
 	if (ntp_offset_log)
 		network->open_ntp_offset_log(ntp_offset_log);
-	if (ntp_timex_offset_log)
-		network->open_ntp_timex_offset_log(ntp_timex_offset_log);
-	if (ntp_status_log)
-		network->open_ntp_status_log(ntp_status_log);
-	if (monotonic_log)
-		network->open_monotonic_log(monotonic_log);
 	if (freq_log)
 		network->open_freq_log(freq_log);
 	if (rawfreq_log)
