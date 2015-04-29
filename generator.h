@@ -13,6 +13,8 @@
  * 
  * You should have received a copy of the GNU General Public License
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ *
+ * Modified by: Michael Saffron & Nick Carter; HMC RedHat Clinic Team '14 - '15
  */
 
 #ifndef GENERATOR_H
@@ -92,14 +94,15 @@ class Generator_random_poisson: public Generator {
 	Generator_random_poisson(const vector<Generator *> *input);
 	virtual double generate(const Generator_variables *variables);
 };
-
+// Generates values using a gamma distribution. Uses shape factor (alpha)
+// and scale factor (theta). This class is basically a wrapper for the
+// gamma distribution provided by the standard library.
 class Generator_random_gamma: public Generator {
 	pcg32 generator;
 	std::gamma_distribution<double> distribution;
 
 	public:
 	Generator_random_gamma(const vector<Generator *> *input);
-	Generator_random_gamma(double alpha, double beta);
 	virtual double generate(const Generator_variables *variables);
 };
 
